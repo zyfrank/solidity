@@ -1,13 +1,14 @@
 IR:
-/*******************************************************
+/*=====================================================*
  *                       WARNING                       *
  *  Solidity to Yul compilation is still EXPERIMENTAL  *
  *       It can result in LOSS OF FUNDS or worse       *
  *                !USE AT YOUR OWN RISK!               *
- *******************************************************/
+ *=====================================================*/
 
 
 object "C_15" {
+    /// @src 0:59,147
     code {
         mstore(64, 128)
         if callvalue() { revert_error_ca66f745a3ce8ff40e2ccaf1ad45db7774001b90d25810abd9040049be7bf4bb() }
@@ -24,6 +25,7 @@ object "C_15" {
         }
 
         function constructor_C_15() {
+            /// @src 0:59,147
 
         }
 
@@ -47,6 +49,7 @@ object "C_15" {
         }
 
     }
+    /// @src 0:59,147
     object "C_15_deployed" {
         code {
             mstore(64, 128)
@@ -213,6 +216,7 @@ object "C_15" {
             }
 
             function fun_f_14(var__7_mpos, var_e_10) {
+                /// @src 0:93,145
 
             }
 
