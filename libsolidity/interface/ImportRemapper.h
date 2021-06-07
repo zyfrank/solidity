@@ -35,6 +35,15 @@ class ImportRemapper
 public:
 	struct Remapping
 	{
+		bool operator!=(Remapping const& _other) const { return !(*this == _other); }
+		bool operator==(Remapping const& _other) const
+		{
+			return
+				context == _other.context &&
+				prefix == _other.prefix &&
+				target == _other.target;
+		}
+
 		std::string context;
 		std::string prefix;
 		std::string target;
