@@ -1,6 +1,7 @@
 set(
 	sources
 	CommandLineInterface.cpp CommandLineInterface.h
+	CommandLineParser.cpp CommandLineParser.h
 	main.cpp
 )
 
