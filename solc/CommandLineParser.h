@@ -33,6 +33,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <ostream>
 #include <set>
 #include <string>
 #include <vector>
@@ -163,6 +164,11 @@ struct CommandLineOptions
 class CommandLineParser
 {
 public:
+	explicit CommandLineParser(std::ostream& _sout, std::ostream& _serr):
+		m_sout(_sout),
+		m_serr(_serr)
+	{}
+
 	/// Parses the command-line arguments and fills out the internal CommandLineOptions structure.
 	/// Performs validation and prints error messages. If requested, prints usage banner, version
 	/// or license.
@@ -177,9 +183,8 @@ public:
 
 	CommandLineOptions const& options() const { return m_options; }
 
-	/// Returns true if any parser instance has written anything to cout or cerr since the last
-	/// call to parse().
-	static bool hasOutput();
+	/// Returns true if the parser has written anything to any of its output streams.
+	bool hasOutput() const { return m_hasOutput; }
 
 private:
 	/// Parses the value supplied to --combined-json.
@@ -196,8 +201,27 @@ private:
 	/// @return false if there are any validation errors, true otherwise.
 	bool parseLibraryOption(std::string const& _input);
 
+	bool checkMutuallyExclusive(
+		boost::program_options::variables_map const& args,
+		std::string const& _optionA,
+		std::string const& _optionB
+	);
+	void version();
+	void license();
 	size_t countEnabledOptions(std::vector<std::string> const& _optionNames) const;
 	static std::string joinOptionNames(std::vector<std::string> const& _optionNames, std::string _separator = ", ");
+
+	/// Returns the stream that should receive normal output. Sets m_hasOutput to true if the
+	/// stream has ever been used.
+	std::ostream& sout();
+
+	/// Returns the stream that should receive error output. Sets m_hasOutput to true if the
+	/// stream has ever been used.
+	std::ostream& serr();
+
+	std::ostream& m_sout;
+	std::ostream& m_serr;
+	bool m_hasOutput = false;
 
 	CommandLineOptions m_options;
 
