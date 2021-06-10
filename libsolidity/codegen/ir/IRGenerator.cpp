@@ -287,7 +287,7 @@ InternalDispatchMap IRGenerator::generateInternalDispatchFunctions()
 				solAssert(m_context.functionCollector().contains(IRNames::function(*function)), "");
 
 				cases.emplace_back(map<string, string>{
-					{"funID", to_string(function->id())},
+					{"funID", to_string(m_context.functionId(function->id()))},
 					{"name", IRNames::function(*function)}
 				});
 			}

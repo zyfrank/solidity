@@ -1551,7 +1551,7 @@ void IRGeneratorForStatements::endVisit(MemberAccess const& _memberAccess)
 		if (memberFunctionType->kind() == FunctionType::Kind::Internal)
 		{
 			auto const& functionDefinition = dynamic_cast<FunctionDefinition const&>(memberFunctionType->declaration());
-			define(IRVariable(_memberAccess).part("functionIdentifier")) << to_string(functionDefinition.id()) << "\n";
+			define(IRVariable(_memberAccess).part("functionIdentifier")) << to_string(m_context.functionId(functionDefinition.id())) << "\n";
 			if (!_memberAccess.annotation().calledDirectly)
 				m_context.addToInternalDispatch(functionDefinition);
 		}
@@ -1892,7 +1892,7 @@ void IRGeneratorForStatements::endVisit(MemberAccess const& _memberAccess)
 						*_memberAccess.annotation().referencedDeclaration
 					).resolveVirtual(m_context.mostDerivedContract(), super);
 
-				define(_memberAccess) << to_string(resolvedFunctionDef.id()) << "\n";
+				define(_memberAccess) << to_string(m_context.functionId(resolvedFunctionDef.id())) << "\n";
 				solAssert(resolvedFunctionDef.functionType(true), "");
 				solAssert(resolvedFunctionDef.functionType(true)->kind() == FunctionType::Kind::Internal, "");
 				if (!_memberAccess.annotation().calledDirectly)
@@ -1909,7 +1909,7 @@ void IRGeneratorForStatements::endVisit(MemberAccess const& _memberAccess)
 				case FunctionType::Kind::Internal:
 					if (auto const* function = dynamic_cast<FunctionDefinition const*>(_memberAccess.annotation().referencedDeclaration))
 					{
-						define(_memberAccess) << to_string(function->id()) << "\n";
+						define(_memberAccess) << to_string(m_context.functionId(function->id())) << "\n";
 						if (!_memberAccess.annotation().calledDirectly)
 							m_context.addToInternalDispatch(*function);
 					}
@@ -1995,7 +1995,7 @@ void IRGeneratorForStatements::endVisit(MemberAccess const& _memberAccess)
 			solAssert(funType->kind() == FunctionType::Kind::Internal, "");
 			solAssert(*_memberAccess.annotation().requiredLookup == VirtualLookup::Static, "");
 
-			define(_memberAccess) << to_string(function->id()) << "\n";
+			define(_memberAccess) << to_string(m_context.functionId(function->id())) << "\n";
 
 			if (!_memberAccess.annotation().calledDirectly)
 				m_context.addToInternalDispatch(*function);
@@ -2242,7 +2242,7 @@ void IRGeneratorForStatements::endVisit(Identifier const& _identifier)
 	{
 		solAssert(*_identifier.annotation().requiredLookup == VirtualLookup::Virtual, "");
 		FunctionDefinition const& resolvedFunctionDef = functionDef->resolveVirtual(m_context.mostDerivedContract());
-		define(_identifier) << to_string(resolvedFunctionDef.id()) << "\n";
+		define(_identifier) << to_string(m_context.functionId(resolvedFunctionDef.id())) << "\n";
 
 		solAssert(resolvedFunctionDef.functionType(true), "");
 		solAssert(resolvedFunctionDef.functionType(true)->kind() == FunctionType::Kind::Internal, "");

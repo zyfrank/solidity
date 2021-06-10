@@ -150,6 +150,12 @@ public:
 	bool inlineAssemblySeen() const { return m_inlineAssemblySeen; }
 	void setInlineAssemblySeen() { m_inlineAssemblySeen = true; }
 
+	int64_t functionId(int64_t _astId) {
+		if (m_functionIds.find(_astId) == m_functionIds.end())
+			m_functionIds[_astId] = ++m_currentFunctionId;
+		return m_functionIds.at(_astId);
+	}
+
 private:
 	langutil::EVMVersion m_evmVersion;
 	RevertStrings m_revertStrings;
@@ -186,6 +192,8 @@ private:
 	/// the code contains a call via a pointer even though a specific function is never assigned to it.
 	/// It will fail at runtime but the code must still compile.
 	InternalDispatchMap m_internalDispatchMap;
+	std::map<int64_t, int64_t> m_functionIds;
+	int64_t m_currentFunctionId{0};
 
 	std::set<ContractDefinition const*, ASTNode::CompareByID> m_subObjects;
 };
