@@ -55,6 +55,7 @@ detect_stray_source_files("${libevmasm_sources}" "libevmasm/")
 
 set(liblangutil_sources
     liblangutil/CharStream.cpp
+    liblangutil/KeyValuePairsParser.cpp
     liblangutil/Scanner.cpp
     liblangutil/SourceLocation.cpp
 )
