@@ -80,6 +80,7 @@
 #include <utility>
 #include <map>
 #include <range/v3/view/concat.hpp>
+#include <range/v3/view/transform.hpp>
 
 #include <boost/algorithm/string/replace.hpp>
 
@@ -924,6 +925,17 @@ map<string, unsigned> CompilerStack::sourceIndices() const
 	solAssert(!indices.count(CompilerContext::yulUtilityFileName()), "");
 	indices[CompilerContext::yulUtilityFileName()] = index++;
 	return indices;
+}
+
+map<unsigned, string> CompilerStack::reverseSourceIndices() const
+{
+	auto const flipPair = [](auto& p) { return pair{p.second, p.first}; };
+	auto indices = sourceIndices();
+	map<unsigned, string> reversed;
+	for (auto const& p: indices | ::ranges::views::transform(flipPair))
+		reversed.insert(p);
+
+	return reversed;
 }
 
 Json::Value const& CompilerStack::contractABI(string const& _contractName) const

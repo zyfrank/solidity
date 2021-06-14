@@ -49,12 +49,15 @@ public:
 	explicit Parser(
 		langutil::ErrorReporter& _errorReporter,
 		Dialect const& _dialect,
-		std::optional<langutil::SourceLocation> _locationOverride = {}
+		std::optional<langutil::SourceLocation> _locationOverride = {},
+		std::map<unsigned, std::string> _sourceIndices = {}
 	):
 		ParserBase(_errorReporter),
 		m_dialect(_dialect),
+		m_sourceIndices{std::move(_sourceIndices)},
 		m_locationOverride(std::move(_locationOverride))
-	{}
+	{
+	}
 
 	/// Parses an inline assembly block starting with `{` and ending with `}`.
 	/// @param _reuseScanner if true, do check for end of input after the `}`.
@@ -64,8 +67,14 @@ public:
 protected:
 	langutil::SourceLocation currentLocation() const override
 	{
+		// Location as passed via @src internal comment parameter.
+		if (m_documentedLocation)
+			return *m_documentedLocation;
+
 		return m_locationOverride ? *m_locationOverride : ParserBase::currentLocation();
 	}
+
+	void updateLocation();
 
 	/// Creates an inline assembly node with the current source location.
 	template <class T> T createWithLocation() const
@@ -97,7 +106,9 @@ protected:
 
 private:
 	Dialect const& m_dialect;
+	std::map<unsigned, std::string> m_sourceIndices;
 	std::optional<langutil::SourceLocation> m_locationOverride;
+	std::optional<langutil::SourceLocation> m_documentedLocation;
 	ForLoopComponent m_currentForLoopComponent = ForLoopComponent::None;
 	bool m_insideFunction = false;
 };

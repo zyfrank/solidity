@@ -26,12 +26,14 @@
 #include <libyul/Exceptions.h>
 #include <liblangutil/Scanner.h>
 #include <liblangutil/ErrorReporter.h>
+#include <liblangutil/KeyValuePairsParser.h>
 #include <libsolutil/Common.h>
 #include <libsolutil/Visitor.h>
 
 #include <boost/algorithm/string.hpp>
 
 #include <algorithm>
+#include <regex>
 
 using namespace std;
 using namespace solidity;
@@ -76,6 +78,52 @@ unique_ptr<Block> Parser::parse(std::shared_ptr<Scanner> const& _scanner, bool _
 	}
 
 	return nullptr;
+}
+
+void Parser::updateLocation()
+{
+	m_documentedLocation.reset();
+	if (!m_scanner->currentCommentLiteral().empty())
+		return;
+
+	for (auto const [name, value, ok]: KeyValuePairsParser::parse(m_scanner->currentCommentLiteral()))
+	{
+		if (!ok)
+			return;
+
+		if (name == "use-src"sv)
+		{
+			// Don't handle that for now.
+		}
+		else if (name == "src"sv)
+		{
+			// Value is of form: <sourceIndex>:<start>,<end>
+			regex const sourceMatchSyntax(R"(^(\d+):(-1|\d+),(-1|\d+)$)");
+
+			cmatch sm;
+			regex_search(value.begin(), value.end(), sm, sourceMatchSyntax);
+
+			std::cout << "sm.len: " << sm.size() << '\n';
+			for (size_t i = 0; i < sm.size(); ++i)
+				std::cout << "sm." << i << ": " << sm[i].str() << '\n';
+
+			solAssert(sm.size() == 4, "");
+			auto const sourceIndex = static_cast<unsigned>(stoul(sm[1].str()));
+			auto const start = stoi(sm[2].str());
+			auto const end = stoi(sm[3].str());
+
+			solAssert(m_sourceIndices.count(sourceIndex), "");
+			auto const sourceName = m_sourceIndices.at(sourceIndex);
+
+			std::shared_ptr<CharStream> charStream; // TODO: map sourceIndex to charStream ()
+			// TODO: I think it would be better to accept a getter-functor in the ctor
+			// so I can avoid the double-mapping here
+
+			m_documentedLocation = SourceLocation{start, end, charStream}; // XXX: charStream is still NULL
+		}
+		else
+			; // ignore unknown keys for now
+	}
 }
 
 Block Parser::parseBlock()
