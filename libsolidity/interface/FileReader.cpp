@@ -31,9 +31,23 @@ using std::string;
 namespace solidity::frontend
 {
 
+void FileReader::setBasePath(boost::filesystem::path const& _path)
+{
+	if (_path.empty())
+		m_basePath = "";
+	else
+		m_basePath = normalizeCLIPathForVFS(_path);
+}
+
 void FileReader::setSource(boost::filesystem::path const& _path, SourceCode _source)
 {
-	m_sourceCodes[_path.generic_string()] = std::move(_source);
+	boost::filesystem::path normalizedPath = normalizeCLIPathForVFS(_path);
+	boost::filesystem::path prefix = (m_basePath.empty() ? normalizeCLIPathForVFS(".") : m_basePath);
+
+	if (isPathPrefix(prefix, normalizedPath))
+		normalizedPath = stripPathPrefix(prefix, normalizedPath);
+
+	m_sourceCodes[normalizedPath.generic_string()] = std::move(_source);
 }
 
 void FileReader::setSources(StringMap _sources)
@@ -92,5 +106,42 @@ ReadCallback::Result FileReader::readFile(string const& _kind, string const& _so
 	}
 }
 
+boost::filesystem::path FileReader::normalizeCLIPathForVFS(boost::filesystem::path const& _path)
+{
+	// NOTE: boost path preserves certain differences that are ignored by its operator ==.
+	// E.g. "a//b" vs "a/b" or "a/b/" vs "a/b/.". lexically_normal() does remove these differences.
+	return boost::filesystem::absolute(_path).lexically_normal();
 }
 
+bool FileReader::isPathPrefix(boost::filesystem::path _prefix, boost::filesystem::path const& _path)
+{
+	solAssert(!_prefix.empty() && !_path.empty(), "");
+	solAssert(_prefix.is_absolute() && _path.is_absolute(), "");
+	solAssert(_prefix == _prefix.lexically_normal() && _path == _path.lexically_normal(), "");
+
+	// If a boost path ends with / (i.e. represents a directory), filename() is a dot.
+	// Compare lengths before stripping the dot so that /a/b/c.sol/ is not a prefix of /a/b/c.sol.
+	long prefixSegmentCount = std::distance(_prefix.begin(), _prefix.end());
+	long pathSegmentCount = std::distance(_path.begin(), _path.end());
+	if (prefixSegmentCount > pathSegmentCount)
+		return false;
+
+	// This ensures that both /a/b and /a/b/ is a prefix of /a/b/c.sol
+	if (_prefix.filename() == ".")
+		_prefix.remove_filename();
+
+	// NOTE: This compares only as many segments are there are in _prefix and ignores the rest.
+	return std::equal(_prefix.begin(), _prefix.end(), _path.begin());
+}
+
+boost::filesystem::path FileReader::stripPathPrefix(boost::filesystem::path _prefix, boost::filesystem::path const& _path)
+{
+	solAssert(isPathPrefix(_prefix, _path), "");
+
+	boost::filesystem::path strippedPath = _path.lexically_relative(_prefix);
+	solAssert(strippedPath.empty() || *strippedPath.begin() != "..", "");
+
+	return strippedPath;
+}
+
+}

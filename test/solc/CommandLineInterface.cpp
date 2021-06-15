@@ -340,7 +340,7 @@ BOOST_AUTO_TEST_CASE(cli_paths_to_source_unit_names_no_base_path)
 	map<string, string> expectedSources = {
 		{"contract1.sol", ""},
 		{"c/d/contract2.sol", ""},
-		{tempDirCurrent.path().string() + "/contract3.sol", ""},
+		{"contract3.sol", ""},
 		{tempDirOther.path().string() + "/contract4.sol", ""},
 	};
 
@@ -391,7 +391,7 @@ BOOST_AUTO_TEST_CASE(cli_paths_to_source_unit_names_base_path_same_as_work_dir)
 	map<string, string> expectedSources = {
 		{"contract1.sol", ""},
 		{"c/d/contract2.sol", ""},
-		{tempDirCurrent.path().string() + "/contract3.sol", ""},
+		{"contract3.sol", ""},
 		{tempDirOther.path().string() + "/contract4.sol", ""},
 	};
 
@@ -444,11 +444,11 @@ BOOST_AUTO_TEST_CASE(cli_paths_to_source_unit_names_base_path_different_from_wor
 	expectedOptions.basePath = tempDirBase.path();
 
 	map<string, string> expectedSources = {
-		{"contract1.sol", ""},
-		{"c/d/contract2.sol", ""},
+		{tempDirCurrent.path().string() + "/contract1.sol", ""},
+		{tempDirCurrent.path().string() + "/c/d/contract2.sol", ""},
 		{tempDirCurrent.path().string() + "/contract3.sol", ""},
 		{tempDirOther.path().string() + "/contract4.sol", ""},
-		{tempDirBase.path().string() + "/contract5.sol", ""},
+		{"contract5.sol", ""},
 	};
 
 	FileReader::FileSystemPathSet expectedAllowedDirectories = {
@@ -501,10 +501,10 @@ BOOST_AUTO_TEST_CASE(cli_paths_to_source_unit_names_relative_base_path)
 	expectedOptions.basePath = "base";
 
 	map<string, string> expectedSources = {
-		{"contract1.sol", ""},
-		{"base/contract2.sol", ""},
+		{tempDirCurrent.path().string() + "/contract1.sol", ""},
+		{"contract2.sol", ""},
 		{tempDirCurrent.path().string() + "/contract3.sol", ""},
-		{tempDirCurrent.path().string() + "/base/contract4.sol", ""},
+		{"contract4.sol", ""},
 		{tempDirOther.path().string() + "/contract5.sol", ""},
 		{tempDirOther.path().string() + "/base/contract6.sol", ""},
 	};
@@ -525,7 +525,7 @@ BOOST_AUTO_TEST_CASE(cli_paths_to_source_unit_names_relative_base_path)
 	BOOST_TEST((result.options == expectedOptions));
 	BOOST_TEST(result.reader.sourceCodes() == expectedSources);
 	BOOST_TEST(result.reader.allowedDirectories() == expectedAllowedDirectories);
-	BOOST_TEST(result.reader.basePath() == expectedOptions.basePath);
+	BOOST_TEST(result.reader.basePath() == tempDirCurrent.path() / "base");
 }
 
 BOOST_AUTO_TEST_CASE(cli_paths_to_source_unit_names_normalization_and_weird_names)
@@ -619,25 +619,25 @@ BOOST_AUTO_TEST_CASE(cli_paths_to_source_unit_names_normalization_and_weird_name
 	};
 
 	map<string, string> expectedSources = {
-		{"file://c/d/contract1.sol", ""},
-		{"file:///c/d/contract2.sol", ""},
-		{"https://example.com/contract3.sol", ""},
+		{"file:/c/d/contract1.sol", ""},
+		{"file:/c/d/contract2.sol", ""},
+		{"https:/example.com/contract3.sol", ""},
 
-		{"a/b//contract4.sol", ""},
-		{"a/b///contract5.sol", ""},
-		{"a/b////contract6.sol", ""},
+		{"a/b/contract4.sol", ""},
+		{"a/b/contract5.sol", ""},
+		{"a/b/contract6.sol", ""},
 
-		{"./a/b/contract7.sol", ""},
-		{"././a/b/contract8.sol", ""},
-		{"a/./b/contract9.sol", ""},
-		{"a/././b/contract10.sol", ""},
+		{"a/b/contract7.sol", ""},
+		{"a/b/contract8.sol", ""},
+		{"a/b/contract9.sol", ""},
+		{"a/b/contract10.sol", ""},
 
-		{"../a/b/contract11.sol", ""},
-		{"../../a/b/contract12.sol", ""},
-		{"a/../b/contract13.sol", ""},
-		{"a/b/../../contract14.sol", ""},
-		{tempDir.path().string() + "/x/y/z/a/../b/contract15.sol", ""},
-		{tempDir.path().string() + "/x/y/z/a/b/../../contract16.sol", ""},
+		{tempDir.path().string() + "/x/y/a/b/contract11.sol", ""},
+		{tempDir.path().string() + "/x/a/b/contract12.sol", ""},
+		{"b/contract13.sol", ""},
+		{"contract14.sol", ""},
+		{"b/contract15.sol", ""},
+		{"contract16.sol", ""},
 
 		{"/.." + tempDir.path().string() + "/contract17.sol", ""},
 		{"/../.." + tempDir.path().string() + "/contract18.sol", ""},
