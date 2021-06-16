@@ -150,7 +150,7 @@ Allowed options)",
 				}
 			}
 		else
-			input = readStandardInput();
+			input = captureInputStream(cin);
 
 		interpret(input);
 	}
