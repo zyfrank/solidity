@@ -99,6 +99,7 @@ ostream& CommandLineInterface::serr(bool _markAsUsed)
 	return m_serr;
 }
 
+#define cin
 #define cout
 #define cerr
 
@@ -414,7 +415,7 @@ bool CommandLineInterface::readInputFilesAndConfigureFileReader()
 	}
 
 	if (m_options.addStdin)
-		m_fileReader.setSource(g_stdinFileName, captureInputStream(cin));
+		m_fileReader.setSource(g_stdinFileName, captureInputStream(m_sin));
 
 	if (m_fileReader.sourceCodes().size() == 0)
 	{
@@ -512,7 +513,7 @@ bool CommandLineInterface::processInput()
 	{
 		string input;
 		if (m_options.standardJsonInputFile.empty())
-			input = captureInputStream(cin);
+			input = captureInputStream(m_sin);
 		else
 		{
 			try
