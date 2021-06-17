@@ -59,6 +59,8 @@ struct OptimiserSettings
 		"]"
 		"jmuljuljul VcTOcul jmul";     // Make source short and pretty
 
+	static size_t constexpr DefaultExecutions = 200;
+
 	/// No optimisations at all - not recommended.
 	static OptimiserSettings none()
 	{
@@ -85,7 +87,7 @@ struct OptimiserSettings
 		s.runConstantOptimiser = true;
 		s.runYulOptimiser = true;
 		s.optimizeStackAllocation = true;
-		s.expectedExecutionsPerDeployment = 200;
+		s.expectedExecutionsPerDeployment = DefaultExecutions;
 		return s;
 	}
 	/// Full optimisations. Currently an alias for standard optimisations.
@@ -149,7 +151,7 @@ struct OptimiserSettings
 	std::string yulOptimiserSteps = DefaultYulOptimiserSteps;
 	/// This specifies an estimate on how often each opcode in this assembly will be executed,
 	/// i.e. use a small value to optimise for size and a large value to optimise for runtime gas usage.
-	size_t expectedExecutionsPerDeployment = 200;
+	size_t expectedExecutionsPerDeployment = DefaultExecutions;
 };
 
 }

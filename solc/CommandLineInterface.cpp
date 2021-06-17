@@ -1037,7 +1037,7 @@ General Information)").c_str(),
 		)
 		(
 			g_argOptimizeRuns.c_str(),
-			po::value<unsigned>()->value_name("n")->default_value(200),
+			po::value<unsigned>()->value_name("n")->default_value(OptimiserSettings::DefaultExecutions),
 			"Set for how many contract runs to optimize. "
 			"Lower values will optimize more for initial deployment cost, higher values will optimize more for high-frequency usage."
 		)
