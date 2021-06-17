@@ -64,7 +64,7 @@ void FuzzerUtil::testCompilerJsonInterface(string const& _input, bool _optimize,
 	config["settings"] = Json::objectValue;
 	config["settings"]["optimizer"] = Json::objectValue;
 	config["settings"]["optimizer"]["enabled"] = _optimize;
-	config["settings"]["optimizer"]["runs"] = OptimiserSettings::DefaultExecutions;
+	config["settings"]["optimizer"]["runs"] = static_cast<int>(OptimiserSettings::DefaultExecutions);
 	config["settings"]["evmVersion"] = "berlin";
 
 	// Enable all SourceUnit-level outputs.
