@@ -65,6 +65,7 @@ void Z3CHCInterface::registerRelation(Expression const& _expr)
 void Z3CHCInterface::addRule(Expression const& _expr, string const& _name)
 {
 	z3::expr rule = m_z3Interface->toZ3Expr(_expr);
+	cout << rule << "\n\n";
 	if (m_z3Interface->constants().empty())
 		m_solver.add_rule(rule, m_context->str_symbol(_name.c_str()));
 	else
@@ -79,6 +80,7 @@ void Z3CHCInterface::addRule(Expression const& _expr, string const& _name)
 
 pair<CheckResult, CHCSolverInterface::CexGraph> Z3CHCInterface::query(Expression const& _expr)
 {
+	//cout << m_solver << endl;
 	CheckResult result;
 	try
 	{
@@ -93,6 +95,7 @@ pair<CheckResult, CHCSolverInterface::CexGraph> Z3CHCInterface::query(Expression
 			if (m_version >= tuple(4, 8, 8, 0))
 			{
 				auto proof = m_solver.get_answer();
+				cout << proof << endl;
 				return {result, cexGraph(proof)};
 			}
 			break;

@@ -153,8 +153,14 @@ void CHC::endVisit(ContractDefinition const& _contract)
 	smtutil::Expression zeroes(true);
 	for (auto var: stateVariablesIncludingInheritedAndPrivate(_contract))
 		zeroes = zeroes && currentValue(*var) == smt::zeroValue(var->type());
-	addRule(smtutil::Expression::implies(initialConstraints(_contract) && zeroes, predicate(entry)), entry.functor().name);
+	smtutil::Expression newAddress = state().addressActive(state().thisAddress()) == smtutil::Expression(false);
+	addRule(smtutil::Expression::implies(initialConstraints(_contract) && zeroes && newAddress, predicate(entry)), entry.functor().name);
 	setCurrentBlock(entry);
+
+	auto const& entryAfterAddress = *createConstructorBlock(_contract, "implicit_constructor_entry_after_address");
+	state().setAddressActive(state().thisAddress(), true);
+	connectBlocks(m_currentBlock, predicate(entryAfterAddress));
+	setCurrentBlock(entryAfterAddress);
 
 	solAssert(!m_errorDest, "");
 	m_errorDest = m_constructorSummaries.at(&_contract);
@@ -192,6 +198,7 @@ void CHC::endVisit(ContractDefinition const& _contract)
 		m_context.addAssertion(errorFlag().currentValue() == 0);
 	}
 
+	state().writeStateVars(_contract, state().thisAddress());
 	connectBlocks(m_currentBlock, summary(_contract));
 
 	setCurrentBlock(*m_constructorSummaries.at(&_contract));
@@ -516,11 +523,13 @@ void CHC::endVisit(FunctionCall const& _funCall)
 		externalFunctionCall(_funCall);
 		SMTEncoder::endVisit(_funCall);
 		break;
+	case FunctionType::Kind::Creation:
+		visitDeployment(_funCall);
+		break;
 	case FunctionType::Kind::DelegateCall:
 	case FunctionType::Kind::BareCall:
 	case FunctionType::Kind::BareCallCode:
 	case FunctionType::Kind::BareDelegateCall:
-	case FunctionType::Kind::Creation:
 		SMTEncoder::endVisit(_funCall);
 		unknownFunctionCall(_funCall);
 		break;
@@ -536,7 +545,6 @@ void CHC::endVisit(FunctionCall const& _funCall)
 		SMTEncoder::endVisit(_funCall);
 		break;
 	}
-
 
 	createReturnedExpressions(_funCall, m_currentContract);
 }
@@ -691,6 +699,46 @@ void CHC::visitAddMulMod(FunctionCall const& _funCall)
 	SMTEncoder::visitAddMulMod(_funCall);
 }
 
+void CHC::visitDeployment(FunctionCall const& _funCall)
+{
+	auto funType = dynamic_cast<FunctionType const*>(_funCall.expression().annotation().type);
+	ContractDefinition const* contract =
+		&dynamic_cast<ContractType const&>(*funType->returnParameterTypes().front()).contractDefinition();
+
+	// copy state variables from m_currentContract to state.storage.
+	state().writeStateVars(*m_currentContract, state().thisAddress());
+	errorFlag().increaseIndex();
+	// TODO Prepare state.tx
+	auto newAddr = state().newThisAddress();
+
+	if (auto constructor = contract->constructor())
+	{
+		auto const& args = _funCall.sortedArguments();
+		auto const& params = constructor->parameters();
+		solAssert(args.size() == params.size(), "");
+		for (size_t i = 0; i < args.size(); ++i)
+			m_context.addAssertion(expr(*args.at(i)) == m_context.variable(*params.at(i))->currentValue());
+	}
+	for (auto var: stateVariablesIncludingInheritedAndPrivate(*contract))
+		m_context.variable(*var)->increaseIndex();
+	Predicate const& constructorSummary = *m_constructorSummaries.at(contract);
+	m_context.addAssertion(smt::constructorCall(constructorSummary, m_context, false));
+
+	solAssert(m_errorDest, "");
+	connectBlocks(
+		m_currentBlock,
+		predicate(*m_errorDest),
+		errorFlag().currentValue() > 0
+	);
+	m_context.addAssertion(errorFlag().currentValue() == 0);
+
+	m_context.addAssertion(state().newThisAddress() == state().thisAddress(0));
+	// copy state variables from state.storage to m_currentContract.
+	state().readStateVars(*m_currentContract, state().thisAddress());
+
+	defineExpr(_funCall, newAddr);
+}
+
 void CHC::internalFunctionCall(FunctionCall const& _funCall)
 {
 	solAssert(m_currentContract, "");
@@ -722,7 +770,8 @@ void CHC::externalFunctionCall(FunctionCall const& _funCall)
 	/// so we just add the nondet_interface predicate.
 
 	solAssert(m_currentContract, "");
-	if (isTrustedExternalCall(&_funCall.expression()))
+	//if (isTrustedExternalCall(&_funCall.expression()))
+	if (true)
 	{
 		externalFunctionCallToTrustedCode(_funCall);
 		return;
@@ -801,6 +850,11 @@ void CHC::externalFunctionCallToTrustedCode(FunctionCall const& _funCall)
 	// set the origin to be the current transaction origin
 	m_context.addAssertion(state().txMember("tx.origin") == txOrigin);
 
+	// Load the called contract's state variables from the global state.
+	state().readStateVars(*function->annotation().contract, contractAddressValue(_funCall));
+	// Load the caller contract's state variables into the global state.
+	state().writeStateVars(*m_currentContract, state().thisAddress());
+
 	smtutil::Expression pred = predicate(_funCall);
 
 	auto txConstraints = state().txTypeConstraints() && state().txFunctionConstraints(*function);
@@ -816,6 +870,13 @@ void CHC::externalFunctionCallToTrustedCode(FunctionCall const& _funCall)
 		(errorFlag().currentValue() > 0)
 	);
 	m_context.addAssertion(errorFlag().currentValue() == 0);
+
+	// Load the called contract's state variables into the global state.
+	state().writeStateVars(*function->annotation().contract, contractAddressValue(_funCall));
+	bool usesStaticCall = function->stateMutability() == StateMutability::Pure || function->stateMutability() == StateMutability::View || kind == FunctionType::Kind::BareStaticCall;
+	if (!usesStaticCall)
+		// Load the caller contract's state variables from the global state.
+		state().readStateVars(*m_currentContract, state().thisAddress());
 }
 
 void CHC::unknownFunctionCall(FunctionCall const&)
@@ -1361,14 +1422,6 @@ smtutil::Expression CHC::predicate(FunctionCall const& _funCall)
 	if (!function)
 		return smtutil::Expression(true);
 
-	auto contractAddressValue = [this](FunctionCall const& _f) {
-		FunctionType const& funType = dynamic_cast<FunctionType const&>(*_f.expression().annotation().type);
-		if (funType.kind() == FunctionType::Kind::Internal)
-			return state().thisAddress();
-		if (MemberAccess const* callBase = dynamic_cast<MemberAccess const*>(&_f.expression()))
-			return expr(callBase->expression());
-		solAssert(false, "Unreachable!");
-	};
 	errorFlag().increaseIndex();
 	vector<smtutil::Expression> args{errorFlag().currentValue(), contractAddressValue(_funCall), state().abi(), state().crypto(), state().tx(), state().state()};
 
@@ -1378,16 +1431,16 @@ smtutil::Expression CHC::predicate(FunctionCall const& _funCall)
 
 	bool usesStaticCall = function->stateMutability() == StateMutability::Pure || function->stateMutability() == StateMutability::View;
 
-	args += currentStateVariables(*m_currentContract);
-	args += symbolicArguments(_funCall, m_currentContract);
-	if (!m_currentContract->isLibrary() && !usesStaticCall)
+	args += currentStateVariables(*contract);
+	args += symbolicArguments(_funCall, contract);
+	if (kind != FunctionType::Kind::Internal || !usesStaticCall)
 	{
 		state().newState();
 		for (auto const& var: m_stateVariables)
 			m_context.variable(*var)->increaseIndex();
 	}
 	args += vector<smtutil::Expression>{state().state()};
-	args += currentStateVariables(*m_currentContract);
+	args += currentStateVariables(*contract);
 
 	for (auto var: function->parameters() + function->returnParameters())
 	{
@@ -1398,14 +1451,14 @@ smtutil::Expression CHC::predicate(FunctionCall const& _funCall)
 		args.push_back(currentValue(*var));
 	}
 
-	Predicate const& summary = *m_summaries.at(m_currentContract).at(function);
-	auto from = smt::function(summary, m_currentContract, m_context);
+	Predicate const& summary = *m_summaries.at(contract).at(function);
+	auto from = smt::function(summary, contract, m_context);
 	Predicate const& callPredicate = *createSummaryBlock(
 		*function,
-		*m_currentContract,
+		*contract,
 		kind == FunctionType::Kind::Internal ? PredicateType::InternalCall : PredicateType::ExternalCallTrusted
 	);
-	auto to = smt::function(callPredicate, m_currentContract, m_context);
+	auto to = smt::function(callPredicate, contract, m_context);
 	addRule(smtutil::Expression::implies(from, to), to.name);
 
 	return callPredicate(args);
